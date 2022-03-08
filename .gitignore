@@ -1,0 +1,10 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rprofile
+renv/*
+renv.lock
+data/*
+*.Rmd
+*.html
