@@ -6,7 +6,7 @@ library(tidyverse)
 library(corrplot)
 
 # load data
-survey_raw <- read.csv("./data/raw/survey_allwaves_final.csv")
+survey_raw <- read_rds("./data/raw/survey_allwaves_final_Mar21.rds")
 
 
 

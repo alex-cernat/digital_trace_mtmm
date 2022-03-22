@@ -1,25 +1,17 @@
 
 # Admin -------------------------------------------------------------------
 
-### TO DO:
-### 1. make activity variables
-### 2. update with student info later
-### 3. aggregate date/person in duration and number of times
-### 4. aggregate web browsing and add
-### 5. make 7 days and 30 days period
-### 6. link with survey data and exploratory analysis
-### 7. MTMM model
 
-
+# check coding of data and distributions
 
 # load library
 library(tidyverse)
 library(lubridate)
 
-app_raw <- read_rds("./data/raw/app_tracking_combined.rds")
-mobile_raw <- read_rds("./data/raw/mobile_tracking_combined.rds")
+app_raw <- read_rds("./data/raw/app_tracking_combined_Mar21.rds")
+mobile_raw <- read_rds("./data/raw/mobile_tracking_combined_Mar21.rds")
 
-
+app_select_info <- read_csv("./data/cat_select.csv")
 
 vars_int_prefix <- c("call", "msg", "web", "phot", "sm")
 
@@ -53,56 +45,24 @@ app_raw %>%
 
 # make categories ---------------------------------------------------------
 
-# call
-app_raw %>%
-  filter(str_detect(app_n, "dialer|contacts|Constacts|^Phone$")) %>%
-  filter(!str_detect(app_n, "recover|Recover|Spontacts")) %>%
-  count(app_n) %>%
-  arrange(desc(n)) %>%
-  print()
 
+# apps of interest
 
-
-# messaging
-
-app_raw %>%
-  filter(
-  str_detect(app_n,
-  "Messenger|Telegram|WhatsApp|Snapchat|Jodel|Skype|Chat|Hangouts|
-Signal - Private Messenger|Discord")) %>%
-  filter(!str_detect(app_n, "Flirt|flirt|Date|date|dating|Dating|Gay|gay")) %>%
-  count(app_n) %>%
-  arrange(desc(n)) %>%
-  View()
-
-
-# web
-
-app_raw %>%
-  filter(str_detect(app_n, "web|browser|Web|Browser|Chrome|Firefox")) %>%
-  filter(!str_detect(app_n, "File|file")) %>%
-  count(app_n) %>%
-  arrange(desc(n)) %>%
-  View()
-
-
-# photo
-app_raw %>%
-  filter(str_detect(app_n, "photo|Photo|Galerij|Cámara|Camera")) %>%
-  filter(!str_detect(app_n, "bank|Bank")) %>%
-  count(app_n) %>%
-  arrange(desc(n)) %>%
-  View()
-
-# social media
-app_raw %>%
-  filter(
-    str_detect(app_n,
-               "Instagram|Facebook|Twitter|LinkedIn|Pinterest")) %>%
-  filter(!str_detect(app_n, "Messenger|Flirt|flirt|Date|date|dating|Dating|Gay|gay")) %>%
-  count(app_n) %>%
-  arrange(desc(n)) %>%
-  View()
+call_app_vct <- filter(app_select_info,
+                       category == "calling" & fit == "yes") %>%
+  .[["app_n"]]
+msg_app_vct <- filter(app_select_info,
+                      category == "messaging" & fit == "yes") %>%
+  .[["app_n"]]
+web_app_vct <- filter(app_select_info,
+                         category == "browsing" & fit == "yes") %>%
+  .[["app_n"]]
+phot_app_vct <- filter(app_select_info,
+                        category == "photo" & fit == "yes") %>%
+  .[["app_n"]]
+sm_app_vct <- filter(app_select_info,
+                     category == "sm" & fit == "yes") %>%
+  .[["app_n"]]
 
 
 # code events -------------------------------------------------------------
@@ -110,48 +70,16 @@ app_raw %>%
 
 app <- app_raw %>%
   mutate(
-    call = ifelse(
-      str_detect(app_n, "dialer|contacts|Constacts|^Phone$") &
-        !str_detect(app_n, "recover|Recover|Spontacts"),
-      1,
-      0
-    ),
-    msg = ifelse(
-      str_detect(
-        app_n,
-        "Messenger|Telegram|WhatsApp|Snapchat|Jodel|Skype|Chat|Hangouts|
-Signal - Private Messenger|Discord"
-      ) &
-        !str_detect(app_n, "Flirt|flirt|Date|date|dating|Dating|Gay|gay"),
-      1,
-      0
-    ),
-    browse = ifelse(
-      str_detect(app_n,
-                 "web|browser|Web|Browser|Chrome|Firefox") &
-        !str_detect(app_n, "File|file"),
-      1,
-      0
-    ),
-    photo =
-      ifelse(
-        str_detect(app_n, "photo|Photo|Galerij|Cámara|Camera") &
-          !str_detect(app_n, "bank|Bank"),
-        1,
-        0
-      ),
-    social = ifelse(
-      str_detect(app_n,
-                 "Instagram|Facebook|Twitter|LinkedIn|Pinterest") &
-        !str_detect(
-          app_n,
-          "Messenger|Flirt|flirt|Date|date|dating|Dating|Gay|gay"
-        ),
-      1,
-      0
-    )
-  )
+    call = ifelse(app_n %in% call_app_vct, 1, 0),
+    msg = ifelse(app_n %in% msg_app_vct, 1, 0),
+    web = ifelse(app_n %in% web_app_vct, 1, 0),
+    phot = ifelse(app_n %in% phot_app_vct, 1, 0),
+    sm = ifelse(app_n %in% sm_app_vct, 1, 0))
 
+app %>%
+  filter(sm == 1) %>%
+  count(app_n) %>%
+  arrange(desc(n))
 
 
 # aggregate data ----------------------------------------------------------
@@ -159,16 +87,15 @@ Signal - Private Messenger|Discord"
 glimpse(app)
 
 count(app, survey)
-count(app, browse)
 qplot(app$duration %>% log())
 summary(app$duration)
 
 agg_data <- app %>%
   mutate(date = lubridate::as_date(used_at)) %>%
-  group_by(id, date) %>%
-  summarise_at(vars(call, msg, browse, photo, social),
+  group_by(new_id, date) %>%
+  summarise_at(vars(call, msg, web, phot, sm),
                list("count" = ~ sum(.),
-                    "dur" = ~ ifelse(. == 1, sum(duration), 0))) %>%
+                    "dur" = ~ ifelse(. > 0.9, sum(duration), 0))) %>%
   filter(row_number() == 1) %>%
   ungroup()
 
@@ -183,11 +110,12 @@ glimpse(mobile_raw)
 
 agg_browse_data <- mobile_raw %>%
   mutate(date = lubridate::as_date(used_at)) %>%
-  group_by(id, date) %>%
-  summarise(browse_main_count = max(row_number()),
-            browse_main_dur = sum(duration)) %>%
+  group_by(new_id, date) %>%
+  summarise(web_main_count = max(row_number()),
+            web_main_dur = sum(duration)) %>%
+  filter(row_number() == 1) %>%
   ungroup() %>%
-  arrange(id, date)
+  arrange(new_id, date)
 
 glimpse(agg_browse_data)
 View(agg_browse_data)
@@ -195,16 +123,15 @@ View(agg_browse_data)
 
 # put together aggregate data ---------------------------------------------
 
-agg_all_data <- full_join(
-  mutate_at(agg_data, vars(id, date), ~as.character(.)),
-  mutate_at(agg_browse_data, vars(id, date), ~as.character(.)),
-  by = c("id", "date")) %>%
+
+agg_all_data <- full_join(agg_data, agg_browse_data,
+                          by = c("new_id", "date")) %>%
   mutate_all(~ifelse(is.na(.), 0, .))
 
 agg_all_data2 <- agg_all_data %>%
-  mutate(browse_count2 = browse_count + browse_main_count,
-         browse_dur2 = browse_dur + browse_main_dur) %>%
-  select(-browse_count, -browse_dur, -browse_main_dur, -browse_main_count) %>%
+  mutate(web_count2 = web_count + web_main_count,
+         web_dur2 = web_dur + web_main_dur) %>%
+  select(-web_count, -web_dur, -web_main_dur, -web_main_count) %>%
   rename_all(~str_remove(., "2"))
 
 View(agg_all_data2)
@@ -222,14 +149,14 @@ survey_full <- read_rds("./data/clean/survey_mtmm_clean.rds")
 
 # make date thresholds
 survey_dates <- survey_full %>%
-  rename(id = ID) %>%
-  select(id, w1_datetime, w1b_datetime) %>%
+  select(new_id, w1_datetime, w1b_datetime) %>%
   mutate(w1_date = as_date(mdy_hm(w1_datetime)),
          w1b_date = as_date(mdy_hm(w1b_datetime)),
          w1_date_7 = w1_date - ddays(7),
          w1_date_30 = w1_date - ddays(30),
          w1b_date_7 = w1b_date - ddays(7),
-         w1b_date_30 = w1b_date - ddays(30))
+         w1b_date_30 = w1b_date - ddays(30),
+         new_id = as.numeric(new_id))
 
 count(survey_dates, w1_date)
 count(survey_full, w1_datetime) %>% arrange(desc(n))
@@ -237,7 +164,8 @@ count(survey_full, w1_datetime) %>% arrange(desc(n))
 
 # merge thresholds with aggregate date
 
-agg_all_data3 <- left_join(agg_all_data2, survey_dates, by = "id")
+agg_all_data3 <- left_join(agg_all_data2, survey_dates, by = "new_id") %>%
+  mutate(date = as_date(date))
 
 
 agg_all_data3 %>%
@@ -246,14 +174,15 @@ agg_all_data3 %>%
                                   ., 0))) %>%
   View()
 
-trace_data_diff <- agg_all_data3 %>%
-  group_by(id) %>%
+trace_data_diff <- agg_all_data3  %>%
+  group_by(new_id) %>%
   mutate(day_before_w1 = difftime(min(date), w1_date, units = "days") %>%
            round(),
          day_before_w1b = difftime(min(date), w1b_date, units = "days") %>%
            round(),
          more_7_days_w1 = ifelse(day_before_w1 < -7, "Yes", "No"),
-         more_7_days_w1b = ifelse(day_before_w1b < -7, "Yes", "No")) %>%
+         more_7_days_w1b = ifelse(day_before_w1b < -7, "Yes", "No")
+         ) %>%
   filter(row_number() == 1) %>%
   ungroup()
 
@@ -269,5 +198,94 @@ count(trace_data_diff, more_7_days_w1, more_7_days_w1b)
 
 
 
+# make 7d and 30d aggregates ----------------------------------------------
 
+
+
+
+agg_all_data3 <- mutate(agg_all_data3,
+                        day_before_w1 = difftime(date,
+                                                 w1_date,
+                                                 units = "days") %>%
+                          round() %>% as.numeric(),
+                        day_before_w1b = difftime(date,
+                                                  w1b_date,
+                                                  units = "days") %>%
+                          round() %>% as.numeric(),
+                        w1_7d_window = ifelse(day_before_w1 %in% -6:0, 1, 0),
+                        w1b_7d_window = ifelse(day_before_w1b %in% -6:0, 1, 0),
+                        w1_30d_window = ifelse(day_before_w1 %in% -29:0, 1, 0),
+                        w1b_30d_window = ifelse(day_before_w1b %in% -29:0, 1, 0))
+
+w1_7d_agg <- agg_all_data3 %>%
+  filter(w1_7d_window == 1) %>%
+  group_by(new_id) %>%
+  mutate(days_count = max(row_number())) %>%
+  summarise_at(vars(ends_with("count"), ends_with("dur")),
+               ~ mean(.)) %>%
+  rename_at(vars(-new_id),
+            ~str_c(., "_w1_7d"))
+
+
+w1b_7d_agg <- agg_all_data3 %>%
+  filter(w1b_7d_window == 1) %>%
+  group_by(new_id) %>%
+  mutate(days_count = max(row_number())) %>%
+  summarise_at(vars(ends_with("count"), ends_with("dur")),
+               ~ mean(.)) %>%
+  rename_at(vars(-new_id),
+            ~str_c(., "_w1b_7d"))
+
+w1_30d_agg <- agg_all_data3 %>%
+  filter(w1_30d_window == 1) %>%
+  group_by(new_id) %>%
+  mutate(days_count = max(row_number())) %>%
+  summarise_at(vars(ends_with("count"), ends_with("dur")),
+               ~ mean(.)) %>%
+  rename_at(vars(-new_id),
+            ~str_c(., "_w1_30d"))
+
+
+w1b_30d_agg <- agg_all_data3 %>%
+  filter(w1b_30d_window == 1) %>%
+  group_by(new_id) %>%
+  mutate(days_count = max(row_number())) %>%
+  summarise_at(vars(ends_with("count"), ends_with("dur")),
+               ~ mean(.)) %>%
+  rename_at(vars(-new_id),
+            ~str_c(., "_w1b_30d"))
+
+
+# bring all the data together
+
+trace_agg_data <- full_join(w1_7d_agg, w1b_7d_agg, by = "new_id") %>%
+  full_join(w1_30d_agg, by = "new_id") %>%
+  full_join(w1b_30d_agg, by = "new_id")
+
+
+
+# clean duration ----------------------------------------------------------
+
+
+# make duration minutes
+
+trace_agg_data2 <- trace_agg_data %>%
+  mutate_at(vars(matches("_dur_")),
+            ~./60) %>%
+  mutate_at(vars(matches("_dur_")),
+            list("log" = ~log(. + 0.1)))
+
+trace_agg_data2 %>%
+  select(ends_with("w1_7d")) %>%
+  map(qplot)
+
+# take log
+
+trace_agg_data2 %>%
+  select(matches("days")) %>%
+  summary()
+
+# export data
+
+write_csv(trace_agg_data2, "./data/clean/trace_agg_data.csv")
 
