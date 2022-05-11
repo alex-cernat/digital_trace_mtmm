@@ -16,12 +16,16 @@ app_select_info <- read_csv("./data/cat_select.csv")
 vars_int_prefix <- c("call", "msg", "web", "phot", "sm")
 
 
+
+survey4 <- read_rds("./data/clean/survey_mtmm_clean.rds")
+
 # Descriptives ------------------------------------------------------------
 
 
 glimpse(mobile_raw)
 glimpse(app_raw)
 count(app_raw, app_cat)
+
 
 app_raw %>%
   filter(app_cat == "Email, Messaging & Telephone") %>%
@@ -112,14 +116,25 @@ agg_browse_data <- mobile_raw %>%
   mutate(date = lubridate::as_date(used_at)) %>%
   group_by(new_id, date) %>%
   summarise(web_main_count = max(row_number()),
-            web_main_dur = sum(duration)) %>%
-  filter(row_number() == 1) %>%
+            web_main_dur = sum(duration, na.rm = T),
+            sm_web_count = sum(
+              str_detect(url, "facebook|twitter|instagram"), na.rm = T),
+            sm_web_dur = sum(
+              ifelse(str_detect(url, "facebook|twitter|instagram"),
+                     duration,
+                     0), na.rm = T)) %>%
   ungroup() %>%
   arrange(new_id, date)
 
 glimpse(agg_browse_data)
 View(agg_browse_data)
+summary(agg_browse_data)
 
+top_sites <- count(mobile_raw, url) %>% arrange(desc(n))
+
+top_sites %>%
+  mutate() %>%
+  View()
 
 # put together aggregate data ---------------------------------------------
 
@@ -130,11 +145,21 @@ agg_all_data <- full_join(agg_data, agg_browse_data,
 
 agg_all_data2 <- agg_all_data %>%
   mutate(web_count2 = web_count + web_main_count,
-         web_dur2 = web_dur + web_main_dur) %>%
-  select(-web_count, -web_dur, -web_main_dur, -web_main_count) %>%
+         web_dur2 = web_dur + web_main_dur,
+         sm_count2 = sm_count + sm_web_count,
+         sm_dur2 = sm_dur + sm_web_dur) %>%
+  select(-web_count, -web_dur, -web_main_dur, -web_main_count,
+         -sm_web_count, -sm_web_dur, -sm_count, -sm_dur) %>%
   rename_all(~str_remove(., "2"))
 
 View(agg_all_data2)
+
+mean(agg_all_data$web_count, use = "compete.obs")
+mean(agg_all_data2$web_count, use = "compete.obs")
+
+mean(agg_all_data$sm_count, use = "compete.obs")
+mean(agg_all_data2$sm_count, use = "compete.obs")
+
 
 # save aggregate date by date and individual
 
@@ -275,17 +300,92 @@ trace_agg_data2 <- trace_agg_data %>%
   mutate_at(vars(matches("_dur_")),
             list("log" = ~log(. + 0.1)))
 
+
+
+
+# join survey and agg data ------------------------------------------------
+
+
+data_full <- left_join(
+  mutate(survey_full, new_id = as.numeric(new_id)),
+  trace_agg_data2,
+  by = "new_id")
+
+
+
+data_w1_w1b <- data_full %>%
+  filter(!(participation_w1 == "no" & participation_w1b == "no"))
+
+data_w1_w1b %>%
+  count(participation_w1, participation_w1b)
+
+
+summ_agg <- data_w1_w1b %>%
+  select(matches("days_count")) %>%
+  summarise_all(list(
+    miss_n = ~sum(is.na(.)),
+    miss_prop = ~mean(is.na(.)) * 100,
+    avg_nr_days = ~mean(., na.rm = T)))
+
+rbind(summ_agg[, 1:4] %>% as.numeric(),
+      summ_agg[, 5:8] %>% as.numeric(),
+      summ_agg[, 9:12] %>% as.numeric()) %>%
+  as_tibble() %>%
+  setNames(c("w1_7d", "w1b_7d", "w1_30d", "w1b_30d")) %>%
+  mutate(stat = c("Number of cases with missing",
+                  "Average % cases missing",
+                  "Average number of days")) %>%
+  select(stat, everything())
+
+data_full
+
+survey_dates %>%
+  select(w1_date, w1b_date) %>%
+  summarise_all(~mean(is.na(.)) * 100)
+
+
+
+# understand who has data in both survey and digital trace data --------------
+
+
+count(app_raw, new_id) %>% nrow()
+count(mobile_raw, new_id) %>% nrow()
+
+small_data <- survey4 %>%
+  filter(participation_w1 == "yes" & participation_w1b == "yes") %>%
+  select(new_id) %>%
+  mutate(new_id = as.numeric(new_id))
+
+semi_join(small_data, mobile_raw) %>% nrow()
+semi_join(small_data, app_raw) %>% nrow()
+
+
+full_join(count(mobile_raw, new_id),
+          count(mobile_raw, new_id), by = "new_id") %>%
+  semi_join(small_data) %>% nrow()
+
+
+# "call" "msg"  "web"  "phot" "sm"
+
 trace_agg_data2 %>%
-  select(ends_with("w1_7d")) %>%
-  map(qplot)
+  select(new_id, matches("count_w1_30d")) %>%
+  group_by(new_id) %>%
+  summarise_all(~sum(., na.rm = T)) %>%
+  ungroup() %>%
+  summarise_all(~mean(. == 0, na.rm = T)) %>%
+  gather()
 
-# take log
 
-trace_agg_data2 %>%
-  select(matches("days")) %>%
-  summary()
 
-# export data
+app %>%
+  select(new_id, vars_int_prefix) %>%
+  group_by(new_id) %>%
+  summarise_all(~sum(., na.rm = T)) %>%
+  ungroup() %>%
+  summarise_all(~mean(. == 0, na.rm = T))
 
-write_csv(trace_agg_data2, "./data/clean/trace_agg_data.csv")
+
+# export data -------------------------------------------------------------
+
+write_rds(trace_agg_data2, "./data/clean/trace_agg_data.rds")
 

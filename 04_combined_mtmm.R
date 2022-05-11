@@ -25,7 +25,7 @@ vars_int2 <- c(str_c(topics, "_5"), str_c(topics, "_7"),
                str_c(topics, "_dur_w1b_30d"))
 
 survey_clean <- read_rds("./data/clean/survey_mtmm_clean.rds")
-trace_agg_data2 <- read_csv("./data/clean/trace_agg_data.csv")
+trace_agg_data2 <- read_rds("./data/clean/trace_agg_data.rds")
 
 
 

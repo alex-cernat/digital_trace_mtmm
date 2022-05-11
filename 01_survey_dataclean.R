@@ -6,7 +6,7 @@ library(tidyverse)
 library(corrplot)
 
 # load data
-survey_raw <- read_rds("./data/raw/survey_allwaves_final_Mar21.rds")
+survey_raw <- read_csv("./data/raw/survey_allwaves_final_April5.csv")
 
 
 
@@ -79,7 +79,7 @@ count(survey, w1_quest_type_devices, w1_sph_msg_7)
 
 
 
-# "shop" questions excluded due to issue with experimentla allocation
+# "shop" questions excluded due to issue with experimental allocation
 vars_int_prefix <- c("call", "msg", "web", "phot", "sm")
 
 
@@ -210,6 +210,10 @@ dur_df2 <- map(dur_vars, make_dur_var, data = dur_df) %>%
   setNames(dur_vars) %>%
   rename_all(~str_c(., "_dur"))
 
+summary(dur_df)
+summary(dur_df2)
+summary(dur_df3)
+
 
 comb_vars_name_dur <- str_c("sph_", vars_int_prefix, "_dur")
 
@@ -221,6 +225,7 @@ dur_df3 <- map_dfc(comb_vars_name_dur, make_comb_var_dur, data = dur_df2) %>%
 summarise_all(dur_df3, ~mean(is.na(.))) %>% cbind()
 summarise_all(dur_df2, ~mean(is.na(.))) %>% cbind()
 
+summary(dur_df2)
 
 # bring all the data together
 
@@ -251,6 +256,12 @@ count(survey_raw, w1b_quest_type_devices, w1b_sph_msg_7)
 count(survey4, sph_msg_7, sph_msg_7_fct)
 count(survey4, sph_msg_5, sph_msg_5_fct)
 
+survey4$sph_sm_dur_log %>% qplot()
+
+survey4 %>%
+  filter(participation_w1 == "yes" & participation_w1b == "yes") %>%
+  select(matches("call")) %>%
+  summary()
 
 
 # export data -------------------------------------------------------------
