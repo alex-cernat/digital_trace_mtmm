@@ -1,8 +1,14 @@
 
+
+
+# TO DO
+# check duration calculation
+# check coding of data and distributions
+
+
 # Admin -------------------------------------------------------------------
 
 
-# check coding of data and distributions
 
 # load library
 library(tidyverse)
@@ -93,24 +99,43 @@ glimpse(app)
 count(app, survey)
 qplot(app$duration %>% log())
 summary(app$duration)
+qplot(app$duration)
+quantile(app$duration,  0.99)
 
-agg_data <- app %>%
-  mutate(date = lubridate::as_date(used_at)) %>%
+app <- app %>%
+  mutate(date = lubridate::as_date(used_at),
+         call_dur = ifelse(call > 0, duration, 0),
+         msg_dur = ifelse(msg > 0, duration, 0),
+         web_dur = ifelse(web > 0, duration, 0),
+         phot_dur = ifelse(phot > 0, duration, 0),
+         sm_dur = ifelse(sm > 0, duration, 0))
+
+agg_data <-  app %>%
   group_by(new_id, date) %>%
-  summarise_at(vars(call, msg, web, phot, sm),
-               list("count" = ~ sum(.),
-                    "dur" = ~ ifelse(. > 0.9, sum(duration), 0))) %>%
-  filter(row_number() == 1) %>%
+  summarise(call_count = sum(call),
+            msg_count = sum(msg),
+            web_count = sum(web),
+            phot_count = sum(phot),
+            sm_count = sum(sm),
+            call_dur = sum(call_dur),
+            msg_dur = sum(msg_dur),
+            web_dur = sum(web_dur),
+            phot_dur = sum(phot_dur),
+            sm_dur = sum(sm_dur)
+            ) %>%
   ungroup()
 
 
 glimpse(agg_data)
 View(agg_data)
 
+map(agg_data, qplot)
 
 # aggregate web browsing --------------------------------------------------
 
 glimpse(mobile_raw)
+
+# aggregate by id and date and make summary statistics for web and social media
 
 agg_browse_data <- mobile_raw %>%
   mutate(date = lubridate::as_date(used_at)) %>%
@@ -130,11 +155,11 @@ glimpse(agg_browse_data)
 View(agg_browse_data)
 summary(agg_browse_data)
 
-top_sites <- count(mobile_raw, url) %>% arrange(desc(n))
-
-top_sites %>%
-  mutate() %>%
-  View()
+# top_sites <- count(mobile_raw, url) %>% arrange(desc(n))
+#
+# top_sites %>%
+#   mutate() %>%
+#   View()
 
 # put together aggregate data ---------------------------------------------
 
@@ -159,6 +184,7 @@ mean(agg_all_data2$web_count, use = "compete.obs")
 
 mean(agg_all_data$sm_count, use = "compete.obs")
 mean(agg_all_data2$sm_count, use = "compete.obs")
+
 
 
 # save aggregate date by date and individual
@@ -247,7 +273,7 @@ w1_7d_agg <- agg_all_data3 %>%
   group_by(new_id) %>%
   mutate(days_count = max(row_number())) %>%
   summarise_at(vars(ends_with("count"), ends_with("dur")),
-               ~ mean(.)) %>%
+               ~ sum(., na.rm = T)) %>%
   rename_at(vars(-new_id),
             ~str_c(., "_w1_7d"))
 
@@ -257,7 +283,7 @@ w1b_7d_agg <- agg_all_data3 %>%
   group_by(new_id) %>%
   mutate(days_count = max(row_number())) %>%
   summarise_at(vars(ends_with("count"), ends_with("dur")),
-               ~ mean(.)) %>%
+               ~ sum(., na.rm = T)) %>%
   rename_at(vars(-new_id),
             ~str_c(., "_w1b_7d"))
 
@@ -266,7 +292,7 @@ w1_30d_agg <- agg_all_data3 %>%
   group_by(new_id) %>%
   mutate(days_count = max(row_number())) %>%
   summarise_at(vars(ends_with("count"), ends_with("dur")),
-               ~ mean(.)) %>%
+               ~ sum(., na.rm = T)) %>%
   rename_at(vars(-new_id),
             ~str_c(., "_w1_30d"))
 
@@ -276,7 +302,7 @@ w1b_30d_agg <- agg_all_data3 %>%
   group_by(new_id) %>%
   mutate(days_count = max(row_number())) %>%
   summarise_at(vars(ends_with("count"), ends_with("dur")),
-               ~ mean(.)) %>%
+               ~ sum(., na.rm = T)) %>%
   rename_at(vars(-new_id),
             ~str_c(., "_w1b_30d"))
 
@@ -297,10 +323,12 @@ trace_agg_data <- full_join(w1_7d_agg, w1b_7d_agg, by = "new_id") %>%
 trace_agg_data2 <- trace_agg_data %>%
   mutate_at(vars(matches("_dur_")),
             ~./60) %>%
-  mutate_at(vars(matches("_dur_")),
-            list("log" = ~log(. + 0.1)))
+  mutate_at(vars(matches("_dur_"), matches("_count_")),
+            list("log" = ~log(.))) %>%
+  mutate_all(~ifelse(is.infinite(.), NA, .))
 
 
+summary(trace_agg_data2)
 
 
 # join survey and agg data ------------------------------------------------
@@ -384,8 +412,14 @@ app %>%
   ungroup() %>%
   summarise_all(~mean(. == 0, na.rm = T))
 
+trace_agg_data2 %>%
+  select(matches("w1_30d_log")) %>%
+  mutate_all(~ifelse(. < 0, NA, .)) %>%
+  map(qplot)
+
 
 # export data -------------------------------------------------------------
 
 write_rds(trace_agg_data2, "./data/clean/trace_agg_data.rds")
+
 
