@@ -2,13 +2,12 @@
 # Admin -------------------------------------------------------------------
 
 
-
 # load library
 library(tidyverse)
 library(lubridate)
 
-app_raw <- read_rds("./data/raw/app_tracking_combined_Mar21.rds")
-mobile_raw <- read_rds("./data/raw/mobile_tracking_combined_Mar21.rds")
+app_raw <- read_rds("./data/raw/app_tracking_combined.rds")
+mobile_raw <- read_rds("./data/raw/mobile_tracking_combined.rds")
 
 app_select_info <- read_csv("./data/cat_select.csv")
 

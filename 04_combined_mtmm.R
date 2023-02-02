@@ -48,7 +48,7 @@ full_data <- left_join(survey_clean2, trace_agg_data2, by = "new_id")
 
 # select only cases in waves 1 and waves 1b
 data_w1_w1b <- full_data %>%
-  filter(!(participation_w1 == "no" & participation_w1b == "no"))
+  filter(participation_w1 == "yes" & participation_w1b == "yes")
 
 # rename the variables of interest
 mtmm_data <- data_w1_w1b %>%
@@ -66,7 +66,8 @@ mtmm_data <- data_w1_w1b %>%
 # rescale all vars to 0/1
 
 mtmm_data_rescale <- mtmm_data %>%
-  mutate_all(~(. - min(., na.rm = T)) / (max(., na.rm = T) - min(., na.rm = T)))
+  mutate_all(~(. - min(., na.rm = T)) /
+               (max(., na.rm = T) - min(., na.rm = T)))
 
 summary(mtmm_data_rescale)
 
@@ -253,8 +254,8 @@ fit_MTMM_long <- bcfa(mtmm,
                  auto.fix.first = FALSE,
                  auto.var = TRUE,
                  n.chains = 4,
-                 burnin = 2000,
-                 sample = 2000)
+                 burnin = 4000,
+                 sample = 4000)
 
 lavaan::fitmeasures(fit_MTMM_long)
 summary(fit_MTMM_long, standardized = TRUE)
