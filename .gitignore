@@ -5,7 +5,8 @@
 .Rprofile
 renv/*
 renv.lock
-data/*
+data/raw/*
+data/clean/*
 *.Rmd
 *.html
 output/MTMM_overall.RData
