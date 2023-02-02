@@ -6,7 +6,7 @@ library(tidyverse)
 library(corrplot)
 
 # load data
-survey_raw <- read_csv("./data/raw/survey_allwaves_final_April5.csv")
+survey_raw <- read_rds("./data/raw/PINCET_v2.rds")
 
 
 
@@ -126,9 +126,16 @@ survey2 <- survey %>%
 
 
 count(survey2, w1_sph_web_5)
+count(survey, w1_sph_web_5)
+
 count(survey2, w1_sph_web_7)
+count(survey, w1_sph_web_7)
+
 count(survey2, w1_sph_msg_5)
+count(survey, w1_sph_msg_5)
+
 count(survey2, w1_sph_msg_7)
+count(survey, w1_sph_msg_7)
 
 
 
@@ -181,16 +188,34 @@ table(survey2$w1_sph_call_7,
 dur_vars <- c(str_c("w1_sph_", vars_int_prefix),
               str_c("w1b_sph_", vars_int_prefix))
 
+# check missing pattern
+survey %>%
+  select(matches(dur_vars)) %>%
+  select(ends_with("hr"), ends_with("min")) %>%
+  mutate_all(~ifelse(. == "\\.", NA, .)) %>%
+  mutate_all(~as.numeric(.)) %>%
+  mutate_all(~ifelse(is.na(.), 1, 0)) %>%
+  summarise_all(~mean(.)) %>%
+  gather()
 
 
+# select just dration vars and make numeric
 dur_df <- survey2 %>%
   select(matches(dur_vars)) %>%
   select(ends_with("hr"), ends_with("min")) %>%
   mutate_all(~as.numeric(.))
 
-
+# function to add minutes and hours
 make_dur_var <- function(data, var){
-  data[[str_c(var, "_hr")]] + data[[str_c(var, "_min")]]/60
+
+  var_hr <- data[[str_c(var, "_hr")]]
+  var_min <- data[[str_c(var, "_min")]]/60
+
+  case_when(
+    !is.na(var_hr) & !is.na(var_min) ~ var_hr + var_min,
+    !is.na(var_hr) & is.na(var_min) ~ var_hr,
+    is.na(var_hr) & !is.na(var_min) ~ var_min
+    )
 }
 
 # function to create combined data for duration
@@ -202,8 +227,7 @@ make_comb_var_dur <- function(data, var){
 
 }
 
-
-
+# combine minutes and hours
 dur_df2 <- map(dur_vars, make_dur_var, data = dur_df) %>%
   reduce(cbind) %>%
   as_tibble() %>%
@@ -212,13 +236,13 @@ dur_df2 <- map(dur_vars, make_dur_var, data = dur_df) %>%
 
 summary(dur_df)
 summary(dur_df2)
-summary(dur_df3)
-
+map(dur_df2, qplot)
 
 comb_vars_name_dur <- str_c("sph_", vars_int_prefix, "_dur")
 
-
-dur_df3 <- map_dfc(comb_vars_name_dur, make_comb_var_dur, data = dur_df2) %>%
+dur_df3 <- map_dfc(comb_vars_name_dur,
+                   make_comb_var_dur,
+                   data = dur_df2) %>%
   set_names(comb_vars_name_dur) %>%
   mutate_all(list(log = ~log(. + 0.1)))
 
@@ -226,6 +250,8 @@ summarise_all(dur_df3, ~mean(is.na(.))) %>% cbind()
 summarise_all(dur_df2, ~mean(is.na(.))) %>% cbind()
 
 summary(dur_df2)
+summary(dur_df3)
+
 
 # bring all the data together
 
