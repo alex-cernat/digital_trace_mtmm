@@ -23,9 +23,15 @@ vars_int2 <- c(str_c(topics, "_5"), str_c(topics, "_7"),
                str_c(topics, "_count_w1_30d_log"),
                str_c(topics, "_dur_w1_30d_log"))
 
+# survey_full <- read_rds("./data/clean/survey_mtmm_clean.rds")
 survey_clean <- read_rds("./data/clean/survey_mtmm_clean.rds")
 trace_agg_data2 <- read_rds("./data/clean/trace_agg_data.rds")
 
+
+data_full <- left_join(
+  mutate(survey_full, new_id = as.numeric(new_id)),
+  trace_agg_data2,
+  by = "new_id")
 
 
 vars_int_full <- c(str_c(vars_int, "_5"),
@@ -41,7 +47,7 @@ survey_clean2 <- survey_clean %>%
 full_data <- left_join(survey_clean2, trace_agg_data2, by = "new_id")
 
 # select only cases in waves 1 and waves 1b
-data_w1_w1b <- data_full %>%
+data_w1_w1b <- full_data %>%
   filter(!(participation_w1 == "no" & participation_w1b == "no"))
 
 # rename the variables of interest
@@ -220,6 +226,8 @@ mtmm <- "T_call =~ 1*call_5_s + 1*call_7_s + 1*call_dur_s +
         M_count ~~ 0*T_sm
         M_count ~~ 0*T_web"
 
+
+# shorter default run
 fit_MTMM <- bcfa(mtmm,
                 data = mtmm_data_rescale,
                 std.lv = TRUE,
@@ -231,6 +239,29 @@ lavaan::fitmeasures(fit_MTMM)
 summary(fit_MTMM, standardized = TRUE)
 
 save(fit_MTMM, file = "./output/MTMM_overall.RData")
+
+
+
+
+
+
+
+fit_MTMM_long <- bcfa(mtmm,
+                 data = mtmm_data_rescale,
+                 std.lv = TRUE,
+                 missing = "ml",
+                 auto.fix.first = FALSE,
+                 auto.var = TRUE,
+                 n.chains = 4,
+                 burnin = 2000,
+                 sample = 2000)
+
+lavaan::fitmeasures(fit_MTMM_long)
+summary(fit_MTMM_long, standardized = TRUE)
+
+save(fit_MTMM_long, file = "./output/MTMM_overall_longrun.RData")
+
+
 
 # Calculating the validity and reliability for  using its trait and
 # factor loading
@@ -261,14 +292,14 @@ get_qual <- function(model, variable) {
 
 qual_mtmm <- map_df(names(mtmm_data),
                     get_qual,
-                    model = fit_MTMM) %>%
+                    model = fit_MTMM_long) %>%
   mutate(var = names(mtmm_data))
 
 
 
 
 
-mtmm_fit_est <- lavaan::parameterestimates(fit_MTMM, standardized = T)
+mtmm_fit_est <- lavaan::parameterestimates(fit_MTMM_long, standardized = T)
 
 mtmm_est_qual <- mtmm_fit_est %>%
   filter(op == "=~" | op == "~~") %>%
@@ -310,7 +341,7 @@ mtmm_est_qual %>%
                                    hjust = 0.1))
 
 
-ggsave("./output/fig/mtmm_qual_overall.png")
+ggsave("./output/fig/mtmm_qual_overall_long.png")
 
 
 
@@ -332,7 +363,7 @@ mtmm_est_qual %>%
                                    vjust = 0.5,
                                    hjust = 0.1))
 
-ggsave("./output/fig/mtmm_qual_method.png")
+ggsave("./output/fig/mtmm_qual_method_long.png")
 
 
 mtmm_est_qual %>%
@@ -350,4 +381,4 @@ mtmm_est_qual %>%
   theme(axis.text.x = element_text(angle = -45,
                                    vjust = 0.5,
                                    hjust = 0.1))
-ggsave("./output/fig/mtmm_qual_topic.png")
+ggsave("./output/fig/mtmm_qual_topic_long.png")

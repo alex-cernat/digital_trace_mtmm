@@ -8,3 +8,5 @@ renv.lock
 data/*
 *.Rmd
 *.html
+output/MTMM_overall.RData
+*.RData

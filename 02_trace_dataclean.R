@@ -1,11 +1,4 @@
 
-
-
-# TO DO
-# check duration calculation
-# check coding of data and distributions
-
-
 # Admin -------------------------------------------------------------------
 
 
