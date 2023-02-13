@@ -11,3 +11,5 @@ data/clean/*
 *.html
 output/MTMM_overall.RData
 *.RData
+lavExport/semstan.rda
+lavExport/sem.stan

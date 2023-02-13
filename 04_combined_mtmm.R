@@ -11,6 +11,7 @@ library(corrplot)
 library(lavaan)
 library(viridis)
 library(blavaan)
+library(shinystan)
 
 future::plan("multicore")
 options(mc.cores = parallel::detectCores())
@@ -29,7 +30,7 @@ trace_agg_data2 <- read_rds("./data/clean/trace_agg_data.rds")
 
 
 data_full <- left_join(
-  mutate(survey_full, new_id = as.numeric(new_id)),
+  mutate(survey_clean, new_id = as.numeric(new_id)),
   trace_agg_data2,
   by = "new_id")
 
@@ -253,9 +254,9 @@ fit_MTMM_long <- bcfa(mtmm,
                  missing = "ml",
                  auto.fix.first = FALSE,
                  auto.var = TRUE,
-                 n.chains = 4,
-                 burnin = 4000,
-                 sample = 4000)
+                 n.chains = 8,
+                 burnin = 2000,
+                 sample = 2000)
 
 lavaan::fitmeasures(fit_MTMM_long)
 summary(fit_MTMM_long, standardized = TRUE)
@@ -383,3 +384,11 @@ mtmm_est_qual %>%
                                    vjust = 0.5,
                                    hjust = 0.1))
 ggsave("./output/fig/mtmm_qual_topic_long.png")
+
+
+summary(fit_MTMM_long)
+blavInspect(fit_MTMM_long, 'rhat')
+blavInspect(fit_MTMM_long, 'neff')
+fitMeasures(fit_MTMM_long)
+plot(fit_MTMM_long, 5:10, "trace")
+plot(fit_MTMM_long, 11:16, "trace")
